@@ -1,227 +1,187 @@
-# Basic CI/CD
+  
+## Part 1. Настройка и запуск       
 
-Development of a simple **CI/CD** for the *SimpleBashUtils* project. Building, testing, deployment.
+##### Подними виртуальную машину *Ubuntu Server 22.04 LTS*.
 
-The russian version of the task can be found in the repository.
+![alt text](screen/1.1.png)
 
+##### Скачай и установи на виртуальную машину **gitlab-runner**. (для удобства ввода команд далее использую WSL через ssh к поднятому хосту)
 
-## Contents
+Добавляем официальный репу с гитлаб раннером и скачиваем актуальную версию
 
-1. [Chapter I](#chapter-i)
-2. [Chapter II](#chapter-ii) \
-    2.1. [CI/CD basics](#ci-cd-basics)  
-    2.2. [CI basics](#ci-basics)  
-    2.3. [CD basics](#cd-basics)
-3. [Chapter III](#chapter-iii) \
-    3.1. [Setting up the gitlab-runner](#part-1-setting-up-the-gitlab-runner)  
-    3.2. [Building](#part-2-building)  
-    3.3. [Codestyle test](#part-3-codestyle-test)   
-    3.4. [Integration tests](#part-4-integration-tests)  
-    3.5. [Deployment stage](#part-5-deployment-stage)  
-    3.6. [Bonus. Notifications](#part-6-bonus-notifications)  
-4. [Chapter IV](#chapter-iv)
+![alt text](screen/1.2.png)
 
 
-## Chapter I
+![alt text](screen/1.3.png)
 
-![basic_ci_cd](misc/images/basic_ci_cd.JPG)
+##### Запусти **gitlab-runner** и зарегистрируй его для использования в текущем проекте (*DO6_CICD*).
+- Для регистрации понадобятся URL и токен, которые можно получить на страничке задания на платформе.
 
-Planet Earth, ASI office, today.
+![alt text](screen/1.4.png)
 
-After arriving at the Port of London, you have had a few days to settle in and explore the city, and then comes the day you have to go to your new job.
+## Part 2. Сборка
 
-Today you arrive in a taxi at the door of the office of the company that brought you to Albion.
-In the letter you received the day you arrived, you were given the door code and your office number.
-Surprised by the empty corridors and the deathly silence, you descend a few floors to find your workstation.
+### Напишем этап для **CI** по сборке приложений из проекта *C2_SimpleBashUtils*.
 
-There you find a recently switched on computer and an intercom in a poor state of repair.
-As you enter and close the door behind you, a robotic voice comes out.
+##### создадим _gitlab-ci.yml_ с этапом запуска сборки через мейк файл из проекта _C2_.
 
-"Welcome to the ASI lab's computerised experimental center. The analysis of your body's characteristics has been completed. We are ready to start."
+##### Файлы, полученные после сборки (артефакты), сохрани в произвольную директорию со сроком хранения 30 дней.
 
-"You will be assisting with one of our experimental center projects. Your first task will be to create a **CI/CD** for the well-known **cat** and **grep** utilities."
+![alt text](screen/1.5.png)
 
-Before you begin, we would like to remind you that although learning through play is the main principle of the Experimental Centre, we cannot guarantee the absence of injury and trauma. For your own safety and the safety of others, please refrain from touching *bzzz* anything at all."
+- stages определяет последовательность этапов выполнения.
+- build - это название задачи (job) для этапа сборки.
+- stage: build - указывает, что этот job относится к этапу build.
+- script содержит команды, которые GitLab Runner будет выполнять. Здесь вызывается команда `make`, которая будет запускать процесс сборки проекта с помощью Makefile.
+- artifacts определяет, какие файлы или папки будут сохранены после выполнения этой задачи. В приведенном примере src/artifacts - это путь к собранным артефактам, которые нужно сохранить. При этом команда cd не требуется.
+- expire_in - устанавливает скрок хранения артефактов.
 
+## Part 3. Тест кодстайла
 
-## Chapter II
 
-"Your first task requires some explanation. Let me give you a brief introduction."
+#### Напишем этап для **CI**, который запускает скрипт кодстайла (*clang-format*).
 
-*You could make out the most basic information from the speech that followed, as it felt accelerated by five.*
+##### Если кодстайл не прошел, то «зафейлим» пайплайн.
 
-### **CI/CD** basics
+![alt text](screen/1.6.png)
 
-Sadly... If something is always done "manually", it will either work poorly or not work at all.
+##### В пайплайне отобразим вывод утилиты *clang-format*.
 
-**CI/CD** is a set of principles and practices that enable more frequent and secure deployment of software changes.
+![alt text](screen/1.8.png)  
 
-Reasons for using **CI/CD**:
-- Team development;
-- Long software life cycle;
-- Shortened release cycle;
-- Difficulties in deployment and testing of large systems;
-- Human factor.
+![alt text](screen/1.7.png)
 
-**CI/CD** pipeline is a sequence of actions (scripts) for a particular version of the code in the repository, which is started automatically when changes are made.
 
-### **CI** basics
+### Part 4. Интеграционные тесты
 
-**CI** (Continuous Integration) refers to the integration of individual pieces of application code with each other.
-**CI** normally performs two tasks as described below.
+#### Напишем этап для **CI**, который запускает твои интеграционные тесты из того же проекта.
 
-- BUILD:
-    - Checking if the code is being built at all;
-    - Prepare the artifacts for the next stages;
-- TEST:
-    - Codestyle tests;
-    - Unit tests;
-    - Integration tests;
-    - Other tests you have;
-    - Test reports.
+##### Запусти этот этап автоматически только при условии, если сборка и тест кодстайла прошли успешно.    
 
-### **CD** basics
 
-**CD** (Continuous Delivery) is a continuous integration extension, as it automatically deploys all code changes to the test and/or production environment after the build stage.
-**CD** can perform the following tasks.
+<pre>
+```stages:  
+  - build
+  - code_style
+  - integration_tests
 
-- PUBLISH (If using a deployment docker):
-    - Build container images;
-    - Push the images to where they will be taken from for deployment;
-- UPDATE CONFIGS:
-    - Update configuration on the machines;
-- DEPLOY STAGING:
-    - Deployment of test environment for manual tests, QA, and other non-automated checks;
-    - Can be run manually or automatically if CI stages are passed successfully;
-- DEPLOY PRODUCTION:
-    - Deploying a new version of the system on "production";
-    - This stage better be run manually rather than automatically;
-    - If you want, you can set it up for a specific branch of the repository only (master, release, etc.).
+build_cat_and_grep:
+  stage: build
+  script:
+    - make -C src/cat
+    - make -C src/grep
+  artifacts:
+    paths:
+      - src/cat/s21_cat
+      - src/grep/s21_grep
+    expire_in: 30 days 
+    when: always
 
-"There you go. If you have any questions, run what I said slowly through your head. I'll be right back."
+code_style_check:
+  stage: code_style
+  before_script:
+    - cp materials/linters/.clang-format src/cat
+    - cp materials/linters/.clang-format src/grep
+  script:
+    - cd src/cat
+    - clang-format -n --Werror *.c
+    - cd ../grep
+    - clang-format -n --Werror *.c
+  allow_failure: false
 
-
-## Chapter III
-
-As a result of the work you must save two dumps of the virtual machine images described below. \
-**P.S. Do not upload dumps to git under any circumstances!**
-
-### Part 1. Setting up the **gitlab-runner**
-
-"Since you have decided to do CI/CD, you must really, really like testing. I love it too. So let's get started."
-If you need any information, I recommend looking for answers in the official documentation.
-
-**== Task ==**
-
-##### Start *Ubuntu Server 22.04 LTS* virtual machine.
-*Be prepared to save a dump of the virtual machine image at the end of the project.*
-
-##### Download and install **gitlab-runner** on the virtual machine.
-
-##### Run **gitlab-runner** and register it for use in the current project (*DO6_CICD*).
-- You will need a URL and a token for runner registration, that can be obtained from the task page on the platform.
-
-### Part 2. Building
-
-"The previous test was designed to boost people's self-confidence."
-Now I have readjusted the tests, making them more difficult and less flattering.
-
-**== Task ==**
-
-#### Write a stage for **CI** to build applications from the *C2_SimpleBashUtils* project.
-
-##### In the _gitlab-ci.yml_ file, add a stage to start the building via makefile from the _C2_ project.
-
-##### Save post-build files (artifacts) to a random directory with a 30-day retention period.
-
-
-### Part 3. Codestyle test
-
-"Congratulations, you've accomplished a completely pointless task. Just kidding. It was necessary for moving on to all the following ones."
-
-**== Task ==**
-
-#### Write a stage for **CI** that runs a codestyle script (*clang-format*).
-
-##### If the codefile didn't pass, "fail" the pipeline.
-
-##### In the pipeline, display the output of the *clang-format* utility.
-
-### Part 4. Integration tests
-
-"Great, the codestyle test is written. [WHISPERING] I'm talking to you in private. Don't tell anything to your colleagues. Between you and me, you're doing very well. [LOUDLY] Let's move on to writing integration tests."
-
-**== Task ==**
-
-#### Write a stage for **CI** that runs your integration tests from the same project.
-
-##### Run this stage automatically only if the build and codestyle test passes successfully.
-
-##### If tests didn't pass, "fail" the pipeline.
-
-##### In the pipeline, display the output of the succeeded / failed integration tests.
-
-### Part 5. Deployment stage
-
-"To complete this task, you must move the executable files to another virtual machine, which will play the role of a production. Good luck."
-
-**== Task ==**
-
-##### Start the second virtual machine *Ubuntu Server 22.04 LTS*.
-
-#### Write a stage for **CD** that "deploys" the project on another virtual machine.
-
-##### Run this stage manually, if all the previous stages have passed successfully.
-
-##### Write a bash script which copies the files received after the building (artifacts) into the */usr/local/bin* directory of the second virtual machine using **ssh** and **scp**.
-
-*Here the knowledge gained from the DO2_LinuxNetwork project can help you.*
-
-- Be prepared to explain from the script how the relocation occurs.
-
-##### In the _gitlab-ci.yml_ file, add a stage to run the script you have written.
-
-##### In case of an error, fail the pipeline.
-
-As a result, you should have applications from the *C2_SimpleBashUtils* (s21_cat and s21_grep) project ready to run on the second virtual machine.
-
-##### Save dumps of virtual machine images.
-**P.S. Do not upload dumps to git under any circumstances!**
-- Don't forget to run the pipeline with the last commit in the repository.
-
-### Part 6. Bonus. Notifications
-
-"It says that your next task is for Nobel laureates specially. It does not say what they won the prize for, but certainly not for their ability to work with **gitlab-runner**."
-
-**== Task ==**
-
-##### Set up notifications of successful/unsuccessful pipeline execution via bot named "[your nickname] DO6 CI/CD" in *Telegram*.
-- The text of the notification must contain information on the successful passing of both **CI** and **CD** stages.
-- The rest of the notification text may be arbitrary.
-
-
-## Chapter IV
-
-"Good. After completing a series of tasks, the employee should go to the break room."
-
-While you have a free moment in the break room you decide to check your mail, thinking about the weirdness of what is going on.
-
-
-Just before you take out your phone, another person enters the break room.
-
-"Hi! I haven't seen you here before."
-
-"That would be weird if you had. It's my first day here, huh."
-
-"Oh, first day! So, what do you think of our 'boss'?" the last words were spoken with an obvious grin.
-
-"That was the boss? Phew, I'm not the only one who thinks he's weird... and a bit rude? I thought you were all like that in England."
-
-"Haha, definitely not, mate. It's just a prank on the newbies, but don't worry everything will be fine tomorrow. By the way, here comes the real boss, looks like he's coming your way. Well, good luck, see you later."
-
-The stranger quickly disappeared and a short man in an expensive suit, slightly balding, in his early fifties or sixties, entered the room. Without waiting for you to speak, he said with a subtle, almost imperceptible smile:
-
-"Oh, you must be Thomas. A truly magnificent performance on the test piece. I hope you weren't intimidated by our dear friend ASI Junior, she spoke very highly of you. So, let me tell you more about what we do here in general and what your role is in our company..."
-
-
-💡 [Tap here](https://forms.yandex.ru/cloud/641819b3c09c022518e7a4f3/) **to leave your feedback on the project**. Product Team really tries to make your educational experience better.
+test_cat:
+  stage: integration_tests
+  script:
+    - cd src/cat
+    - chmod +x tests.sh
+    - ./tests.sh > test_out_cat.txt || (cat test_out_cat.txt && exit 1)
+  artifacts:
+    paths:
+      - src/cat
+    expire_in: 30 days 
+    when: always
+  dependencies:
+    - build_cat_and_grep
+    - code_style_check
+  allow_failure: false
+
+test_grep:
+  stage: integration_tests
+  script:
+    - cd src/grep
+    - chmod +x tests.sh
+    - ./tests.sh > test_out_grep.txt || (cat test_out_grep.txt && exit 1)
+  artifacts:
+    paths:
+      - src/grep
+    expire_in: 30 days 
+    when: always
+  dependencies:
+    - build_cat_and_grep
+    - code_style_check
+  allow_failure: false
+```
+</pre>
+
+- Добавляю новый этап и новую задачу integration_tests
+- Перехожу в папки с проектами и запускю тесты
+- Выдаю права на выполнение
+- Передаю весь вывод в *outut.txt файлы и вывожу на "экран" этот файл с помощью cat
+- dependencies - этот ключ позволяет указать зависимости данного этапа от успешного завершения других этапов.
+- allow_failure: false - указывает GitLab не разрешать "успешное" выполнение пайплайна в случае ошибки в этом этапе.
+
+### Part 5. Этап деплоя
+
+ ##### Поднял 2-ую тачку для реализации на ней стадии CD
+
+ ![alt text](screen/2.0.png)
+
+ #### Дописал этап для **CD**, который «доставляет» проект на другую тачку.
+
+![alt text](screen/2.1.png)
+
+
+##### Напиcал bash-скрипт, который при помощи **ssh** и **scp** копирует файлы, полученные после сборки (артефакты), в директорию */usr/local/bin* второй виртуальной машины.
+
+``` #!/bin/bash
+  
+scp ./src/cat/s21_cat root@192.168.31.187:/usr/local/bin 
+scp ./src/grep/s21_grep root@192.168.31.187:/usr/local/bin  
+
+if [ $? -eq 0 ]; then
+    echo "Deploy files passed!"
+else
+    echo "Deploy files failed!"
+    exit 1  
+fi
+```
+![alt text](screen/2.2.png)
+
+![alt text](screen/2.3.png)
+
+### Part 6. Дополнительно. Уведомления в Телегу
+
+
+##### Настроил уведомления о успешном/неуспешном выполнении пайплайна через бота в *Telegram*.
+
+- написал bash скрипт notify.sh c данными бота:
+
+  ``` #!/bin/bash
+  TELEGRAM_TOKEN=6512534775:AAEglfN6IOvME77NQ5S46ksfnjd09maPfBg
+  TELEGRAM_QUARKRON=70735394
+  TIME=10 
+
+  URL="https://api.telegram.org/bot7092707704:AAFYQprtZbxEFeEVknO4Yswmpf4AwKjzLTw/sendMessage"
+  TEXT="Deploy status: $1%0A%0AProject:+$CI_PROJECT_NAME%0AURL:+$CI_PROJECT_URL/pipelines/$CI_PIPELINE_ID/%0ABranch:+$CI_COMMIT_REF_SLUG" 
+
+  curl -s --max-time $TIME -d "chat_id=1139317201&disable_web_page_preview=1&text=$TEXT" $URL > /dev/null
+  ```
+- Добавил пункт after_script в .gitlab-ci.yml в каждую джобу
+
+  ```
+  after_script:
+      - ./notify.sh "test_cat"
+  ```
+- запустил и протестил
+
+![alt text](screen/2.4.png)

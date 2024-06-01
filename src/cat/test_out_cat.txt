@@ -1,0 +1,17 @@
+^^^^^^^^^^^^^^^^^^^^^^^
+TESTS WITH NORMAL FLAGS
+^^^^^^^^^^^^^^^^^^^^^^^
+
+#######################
+MANUAL TESTS
+#######################
+
+1 - Success -s test_files/test_1_cat.txt
+2 - Success -b -e -n -s -t -v test_files/test_1_cat.txt
+3 - Success -b test_files/test_1_cat.txt
+4 - Success -t test_files/test_3_cat.txt
+5 - Success -n test_files/test_2_cat.txt
+6 - Success -n -b test_files/test_1_cat.txt
+7 - Success -s -n -e test_files/test_4_cat.txt
+8 - Success -n test_files/test_1_cat.txt
+9 - Fail -n test_files/test_1_cat.txt test_files/test_2_cat.txt
