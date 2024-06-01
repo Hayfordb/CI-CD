@@ -1,0 +1,80 @@
+stages:  
+  - build
+  - code_style
+  - integration_tests
+  - deploy
+
+build_cat_and_grep:
+  stage: build
+  script:
+    - make -C src/cat
+    - make -C src/grep
+  after_script:
+    - ./notify.sh "build_cat_and_grep"
+  artifacts:
+    paths:
+      - src/cat/s21_cat
+      - src/grep/s21_grep
+    expire_in: 30 days 
+    when: always
+
+code_style_check:
+  stage: code_style
+  before_script:
+    - cp materials/linters/.clang-format src/cat
+    - cp materials/linters/.clang-format src/grep
+  script:
+    - cd src/cat
+    - clang-format -n --Werror *.c
+    - cd ../grep
+    - clang-format -n --Werror *.c
+  after_script:
+    - ./notify.sh "code_style_check"
+  allow_failure: false
+
+test_cat:
+  stage: integration_tests
+  script:
+    - cd src/cat
+    - chmod +x tests.sh
+    - ./tests.sh > test_out_cat.txt
+  after_script:
+    - ./notify.sh "test_cat"
+  artifacts:
+    paths:
+      - src/cat/test_out_cat.txt
+    expire_in: 30 days 
+    when: always
+  dependencies:
+    - build_cat_and_grep
+    - code_style_check
+  allow_failure: false
+
+test_grep:
+  stage: integration_tests
+  script:
+    - cd src/grep
+    - chmod +x tests.sh
+    - ./tests.sh > test_out_grep.txt
+  after_script:
+    - ./notify.sh "test_grep"
+  artifacts:
+    paths:
+      - src/grep/test_out_grep.txt
+    expire_in: 30 days 
+    when: always
+  dependencies:
+    - build_cat_and_grep
+    - code_style_check
+  allow_failure: false
+
+project_deploy:
+  stage: deploy 
+  when: manual
+  script: 
+    - chmod +x deploy.sh
+    - ./deploy.sh
+  after_script:
+    - ./notify.sh "project_deploy" 
+  allow_failure: false
+
